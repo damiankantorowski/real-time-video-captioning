@@ -86,13 +86,3 @@ python main.py
 4) Otwórz stronę:
 - Na tym komputerze: `https://localhost:5000`
 - Z telefonu: `https://IP_WIREGUARD:5000` lub `https://IP_LAN:5000`
-
-## 📞 Wydajność
-
-**GPU (RTX 3060+):**
-- Ładowanie modelu: ~5–10 s
-- Inference: ~0.5 s/predykcja
-
-**CPU:**
-- Ładowanie modelu: ~10–20 s
-- Inference: ~3–5 s/predykcja
