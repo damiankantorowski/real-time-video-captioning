@@ -308,7 +308,7 @@ def detect_objects(frame):
         with torch.no_grad():
             outputs = detection_model(**inputs)
         
-        # Post-process RT-DETR results; frame.shape[:2] is (height, width), reversed to (width, height)
+        # Post-process RT-DETR results; convert frame.shape[:2] from (height, width) to (width, height) using [::-1]
         target_sizes = torch.tensor([frame.shape[:2][::-1]])
         results = detection_processor.post_process_object_detection(
             outputs, 
@@ -370,7 +370,7 @@ def run_inference():
                 top_probs, top_indices = torch.topk(probs, 5)
                 
                 # Dynamically determine how many classes to show based on confidence:
-                # >60% → show 1, >40% → show 2, otherwise show 3
+                # >60% → show 1, 40–60% → show 2, ≤40% → show 3
                 best_confidence = top_probs[0].item()
                 
                 if best_confidence > 0.6:
