@@ -1,29 +1,19 @@
-# ViViT Video Classifier – Instrukcja uruchomienia (kamera lokalna)
+# Real-time Video Captioning
 
-System do analizy wideo w czasie rzeczywistym z wykorzystaniem modelu ViViT. Źródłem obrazu jest kamera urządzenia, na którym otwarta jest strona (telefon/komputer). Bez Vdo.Ninja.
+System do analizy wideo w czasie rzeczywistym z wykorzystaniem modeli RT-DETR, ViViT, IntenVL. Źródłem obrazu jest kamera urządzenia, na którym otwarta jest strona (telefon/komputer).
 
 ## 🎯 Architektura
 
 ```
-Telefon (Android) → Kamera → Przeglądarka → Komputer z CUDA (ViViT) → Wynik → Wyświetlanie
-                                    ↓
-                          Opcjonalnie: VPS z Nginx (reverse proxy)
+Telefon (Android) → Kamera → Przeglądarka → Komputer z CUDA  → Wynik → Wyświetlanie
 ```
 
 ## 📋 Wymagania
 
 ### Komputer z CUDA:
 - Python 3.8+
-- NVIDIA GPU z CUDA
-- 8GB+ RAM
-- Zainstalowany CUDA Toolkit i cuDNN
-
-### VPS (opcjonalnie):
-- Nginx
-- Dostęp SSH
-
-### Telefon/Urządzenie:
-- Przeglądarka z obsługą kamery (Chrome/Firefox)
+- NVIDIA GPU
+- Zainstalowany CUDA Toolkit
 
 ## 🚀 Instalacja i uruchomienie
 
@@ -59,60 +49,12 @@ sudo ufw allow 5000/tcp
 **Opcja B: Ta sama sieć WiFi**
 - Otwórz: `http://IP_LOKALNE_KOMPUTERA:5000`
 
-**Opcja C: Przez VPS z Nginx**
-- Otwórz: `http://twoja-domena.com` lub `http://IP_VPS`
-- VPS reverse proxy do komputera z CUDA
-
-## 🎮 Użytkowanie
-
-1. Otwórz stronę na telefonie/komputerze
-2. Zezwól na dostęp do kamery
-3. Kliknij „Rozpocznij analizę”
-4. System wyświetli:
-   - Nazwę wykrytej klasy
-   - Poziom pewności (0–100%)
-
-## 📊 Informacje techniczne
-
-- Model: Google ViViT-B-16x2 (Kinetics-400)
-- Klasy: 400 aktywności
-- Częstotliwość: ~2 predykcje/sekundę
-- Bufor: 32 ramki
-- Rozdzielczość wejścia: 224×224 px
-
-## 🔧 Rozwiązywanie problemów
-
-### Brak GPU/CUDA
-System automatycznie użyje CPU (wolniej).
-
-### „Brak połączenia z serwerem”
-- Sprawdź `http://localhost:5000/health`
-- Firewall i port 5000
-
-### Wolne działanie
-- Upewnij się, że używasz GPU („Urządzenie: cuda” w logach)
-- W `templates/index.html` zwiększ interwał wysyłania (domyślnie 100 ms)
-
-### Błędy kamery
-**Komunikat:** `cannot read properties of undefined (reading 'getUserMedia')`
-
-Przeglądarka blokuje dostęp do kamery, jeśli strona nie jest w bezpiecznym kontekście.
-
-- Wymagany jest HTTPS lub `localhost` (secure context)
-- Rozwiązania:
-    - Uruchom stronę na tym samym komputerze i otwórz `http://localhost:5000`
-    - Skonfiguruj HTTPS na VPS (Nginx + Certbot) i otwieraj `https://twoja-domena.com`
-    - Alternatywnie użyj Cloudflare Tunnel, aby uzyskać publiczny HTTPS bez otwierania portów
-  
-- Sprawdź uprawnienia przeglądarki do kamery
-
 ## 🔒 Bezpieczeństwo
 
 **WireGuard:**
 - Ruch szyfrowany przez tunel VPN; HTTPS nie wymagane
 
-**HTTPS lokalnie na Windows (bez VPS):**
-Możesz uruchomić serwer Flask bezpośrednio z HTTPS, korzystając z lokalnie zaufanego certyfikatu.
+**HTTPS lokalnie na Windows**
 
 1) Zainstaluj mkcert (Windows, PowerShell):
 ```powershell
@@ -136,16 +78,14 @@ Powstaną pliki, np.: `localhost.pem` i `localhost-key.pem`.
 3) Uruchom serwer Flask z HTTPS:
 ```powershell
 $env:ENABLE_HTTPS = "true"
-$env:SSL_CERT_PATH = "c:\\Users\\damia\\Desktop\\ViViT Server\\localhost.pem"
-$env:SSL_KEY_PATH  = "c:\\Users\\damia\\Desktop\\ViViT Server\\localhost-key.pem"
+$env:SSL_CERT_PATH = localhost.pem"
+$env:SSL_KEY_PATH  = "localhost-key.pem"
 python main.py
 ```
 
 4) Otwórz stronę:
 - Na tym komputerze: `https://localhost:5000`
 - Z telefonu: `https://IP_WIREGUARD:5000` lub `https://IP_LAN:5000`
-
-Uwaga (Android): Aby certyfikat był zaufany na telefonie, zainstaluj główny certyfikat CA mkcert na urządzeniu (Ustawienia → Bezpieczeństwo → Zainstaluj certyfikat → CA). Alternatywnie użyj `localhost` na tym samym urządzeniu lub WireGuard.
 
 ## 📞 Wydajność
 
@@ -156,53 +96,3 @@ Uwaga (Android): Aby certyfikat był zaufany na telefonie, zainstaluj główny c
 **CPU:**
 - Ładowanie modelu: ~10–20 s
 - Inference: ~3–5 s/predykcja
-
-## 🛠️ Dostosowanie
-
-### Zmiana modelu
-W [main.py](main.py):
-```python
-MODEL_NAME = "google/vivit-b-16x2-kinetics400"
-```
-
-### Rozmiar bufora
-```python
-FRAME_BUFFER_SIZE = 32
-```
-
-### Częstotliwość predykcji
-W `run_inference()`:
-```python
-time.sleep(0.5)
-```
-
-## 📦 Struktura projektu
-
-```
-ViViT Server/
-├── main.py
-├── requirements.txt
-├── nginx.conf
-├── README.md
-└── templates/
-    └── index.html
-```
-
-## ❓ FAQ
-
-**Czy muszę używać VPS?**
-Nie. Z WireGuard lub w tej samej sieci możesz łączyć się bezpośrednio.
-
-**Czy działa na CPU?**
-Tak, ale wolniej.
-
-**Czy mogę używać własnego modelu?**
-Tak, zmień `MODEL_NAME` na inny ViViT z Hugging Face.
-
-**Jak sprawdzić IP w WireGuard?**
-- Windows: `ipconfig`
-- Linux: `ip addr show wg0` lub `wg show`
-- Android: aplikacja WireGuard → „Addresses”
-
-**Wsparcie**
-Sprawdź logi serwera i konsolę przeglądarki (F12).
