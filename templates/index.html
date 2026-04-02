@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analiza wideo</title>
+    <title>Video Analysis</title>
     <style>
         * {
             margin: 0;
@@ -257,41 +257,41 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Analiza wideo</h1>
+            <h1>Video Analysis</h1>
         </div>
 
         <div class="content">
-            <div id="status" class="status">Gotowy do uruchomienia</div>
+            <div id="status" class="status">Ready to start</div>
 
             <div class="controls">
-                <button id="startBtn" class="btn btn-primary">Rozpocznij</button>
-                <button id="stopBtn" class="btn btn-danger" style="display:none;">Zatrzymaj</button>
+                <button id="startBtn" class="btn btn-primary">Start</button>
+                <button id="stopBtn" class="btn btn-danger" style="display:none;">Stop</button>
             </div>
 
             <div class="video-section">
                 <div class="video-box">
-                    <h2>Wideo</h2>
+                    <h2>Video</h2>
                     <div id="video-container">
                         <video id="videoElement" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
                     </div>
                 </div>
 
                 <div class="video-box">
-                    <h2>Predykcja</h2>
+                    <h2>Prediction</h2>
                     <div id="internvlContainer" class="objects-box" style="background: linear-gradient(135deg, #758bbd 0%, #11223d 100%); min-height: 150px;">
-                        <div class="objects-title">Opis sceny (InternVL):</div>
+                        <div class="objects-title">Scene Description (InternVL):</div>
                         <div id="videoDescription" style="padding: 10px; font-size: 1em; line-height: 1.5; text-align: left;"></div>
                     </div>
                     <div id="objectsContainer" class="objects-box">
-                        <div class="objects-title">Wykryte obiekty (RT-DETR):</div>
+                        <div class="objects-title">Detected Objects (RT-DETR):</div>
                         <div id="objectsList" class="objects-list"></div>
                     </div>
                     <div id="vitContainer" class="objects-box" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
-                        <div class="objects-title">Klasyfikacja obrazu (ViT):</div>
+                        <div class="objects-title">Image Classification (ViT):</div>
                         <div id="vitList" class="objects-list"></div>
                     </div>
                     <div id="actionsContainer" class="objects-box" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
-                        <div class="objects-title">Klasyfikacja akcji (ViViT):</div>
+                        <div class="objects-title">Action Classification (ViViT):</div>
                         <div id="topClassesList" class="objects-list"></div>
                     </div>
                 </div>
@@ -330,12 +330,12 @@
             
             socket.on('connect', () => {
                 isConnected = true;
-                console.log('Połączono');
+                console.log('Connected');
             });
             
             socket.on('disconnect', () => {
                 isConnected = false;
-                console.log('Rozłączono');
+                console.log('Disconnected');
             });
             
             socket.on('prediction_update', (prediction) => {
@@ -347,13 +347,13 @@
                 if (data && data.video_description) {
                     videoDescription.innerHTML = `<span>${data.video_description}</span>`;
                 } else {
-                    videoDescription.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
+                    videoDescription.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
                 }
             });
             
             socket.on('error', (error) => {
-                console.error('Błąd WebSocket:', error);
-                updateStatus('Błąd: ' + error.message, 'error');
+                console.error('WebSocket error:', error);
+                updateStatus('Error: ' + error.message, 'error');
             });
         }
 
@@ -366,31 +366,28 @@
 
         function canUseCamera() {
             const hasMediaDevices = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-            const isSecure = window.isSecureContext; // true dla HTTPS lub localhost
+            const isSecure = window.isSecureContext; // true for HTTPS or localhost
 
             if (!hasMediaDevices) {
-                updateStatus('Kamera niedostępna: navigator.mediaDevices.getUserMedia nieobsługiwane w tym kontekście.', 'error');
+                updateStatus('Camera unavailable: navigator.mediaDevices.getUserMedia is not supported in this context.', 'error');
                 return false;
             }
 
             if (!isSecure) {
-                updateStatus('Dostęp do kamery wymaga bezpiecznego połączenia (HTTPS) lub localhost. Użyj HTTPS (np. przez VPS/Nginx + Certbot) albo otwórz stronę na tym samym komputerze jako http://localhost:5000.', 'error');
+                updateStatus('Camera access requires a secure connection (HTTPS) or localhost. Use HTTPS (e.g. via VPS/Nginx + Certbot) or open the page on the same machine at http://localhost:5000.', 'error');
                 return false;
             }
 
             return true;
         }
 
-        // Brak wyboru źródła – zawsze używamy lokalnej kamery
-
         async function startCamera() {
             try {
-                // Sprawdź wsparcie i secure context
                 if (!canUseCamera()) {
                     return;
                 }
 
-                // Zawsze używaj tylnej kamery
+                // Always use the rear camera
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         facingMode: 'environment',
@@ -400,93 +397,87 @@
                 });
 
                 videoElement.srcObject = stream;
-                updateStatus('Kamera aktywna', 'active');
+                updateStatus('Camera active', 'active');
                 
                 startBtn.style.display = 'none';
                 stopBtn.style.display = 'inline-block';
                 
-                // Rozpocznij wysyłanie ramek do serwera
                 startFrameCapture();
                 
             } catch (error) {
-                console.error('Błąd dostępu do kamery:', error);
-                updateStatus('Błąd dostępu do kamery: ' + error.message, 'error');
+                console.error('Camera access error:', error);
+                updateStatus('Camera access error: ' + error.message, 'error');
             }
         }
 
         function captureFrame() {
             if (!videoElement.videoWidth) return null;
             
-            // Zmniejsz rozmiar przed wysłaniem - skaluj do max 480px
+            // Scale down before sending – max 480px width
             const maxWidth = 480;
             const scale = Math.min(1, maxWidth / videoElement.videoWidth);
             canvas.width = videoElement.videoWidth * scale;
             canvas.height = videoElement.videoHeight * scale;
             ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
             
-            // Niska jakość JPEG (0.4) aby zmniejszyć rozmiar transmisji
+            // Low JPEG quality (0.4) to reduce transmission size
             return canvas.toDataURL('image/jpeg', 0.4);
         }
 
         async function sendFrameToServer(frameData) {
             try {
                 if (!isConnected) {
-                    console.warn('Nie połączono z serwerem');
+                    console.warn('Not connected to server');
                     return;
                 }
                 
                 socket.emit('send_frame', { frame: frameData });
             } catch (error) {
-                console.error('Błąd wysyłania ramki:', error);
+                console.error('Error sending frame:', error);
             }
         }
 
         function updatePrediction(prediction) {
-            // Wyświetl opis wideo z InternVL
             if (!isDescPending) {
                 if (prediction.video_description) {
                     videoDescription.innerHTML = `<span>${prediction.video_description}</span>`;
                 } else {
-                    videoDescription.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
+                    videoDescription.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
                 }
             }
             
-            // Wyświetl top klasy (akcje)
             if (prediction.top_classes && prediction.top_classes.length > 0) {
-                // Sprawdź czy to są prawdziwe wyniki (confidence > 0)
                 const hasRealData = prediction.top_classes[0].confidence > 0;
                 if (hasRealData) {
                     topClassesList.innerHTML = prediction.top_classes.map(cls => 
                         `<span class="object-tag">${cls.class} <strong>${(cls.confidence * 100).toFixed(0)}%</strong></span>`
                     ).join('');
                 } else {
-                    topClassesList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
+                    topClassesList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
                 }
             } else {
-                topClassesList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
+                topClassesList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
             }
             
-            // Wyświetl obiekty
             if (prediction.objects && prediction.objects.length > 0) {
                 objectsList.innerHTML = prediction.objects.map(obj => 
                     `<span class="object-tag">${obj.name} <strong>${(obj.confidence * 100).toFixed(0)}%</strong></span>`
                 ).join('');
             } else {
-                objectsList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
+                objectsList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
             }
             
-            // Wyświetl klasyfikację ViT
             if (prediction.vit_classes && prediction.vit_classes.length > 0) {
                 vitList.innerHTML = prediction.vit_classes.map(cls => 
                     `<span class="object-tag">${cls.class} <strong>${(cls.confidence * 100).toFixed(0)}%</strong></span>`
                 ).join('');
             } else {
-                vitList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
+                vitList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
             }
         }
 
         function startFrameCapture() {
-            // Wyślij ramkę co 300ms (~3 FPS) zamiast 100ms - redukcja transferu danych
+            // Send a frame every 300ms (~3 FPS) – reduces data transfer
             intervalId = setInterval(() => {
                 const frame = captureFrame();
                 if (frame) {
@@ -507,16 +498,16 @@
             }
             
             videoElement.srcObject = null;
-            updateStatus('Zatrzymano', 'normal');
+            updateStatus('Stopped', 'normal');
             
             startBtn.style.display = 'inline-block';
             stopBtn.style.display = 'none';
             isDescPending = false;
             
-            videoDescription.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
-            topClassesList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
-            objectsList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
-            vitList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
+            videoDescription.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
+            topClassesList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
+            objectsList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
+            vitList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
         }
 
         startBtn.addEventListener('click', startCamera);
@@ -524,25 +515,22 @@
         internvlContainer.addEventListener('click', () => {
             if (!isConnected) return;
             isDescPending = true;
-            videoDescription.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Generuję opis...</span>';
+            videoDescription.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Generating description...</span>';
             socket.emit('request_description');
         });
 
-        // Zainicjuj napisy oczekiwania
-        videoDescription.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
-        topClassesList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
-        objectsList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
-        vitList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Oczekiwanie...</span>';
+        videoDescription.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
+        topClassesList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
+        objectsList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
+        vitList.innerHTML = '<span style="opacity: 0.6; font-size: 0.9em;">Waiting...</span>';
 
-        // Zainicjuj WebSocket i sprawdź połączenie
         initWebSocket();
         
-        // Czekaj na połączenie WebSocket przed sprawdzeniem health check
         setTimeout(() => {
             if (isConnected) {
-                updateStatus('Połączono z serwerem', 'active');
+                updateStatus('Connected to server', 'active');
             } else {
-                updateStatus('Czekanie na połączenie...', 'normal');
+                updateStatus('Waiting for connection...', 'normal');
             }
         }, 1000);
     </script>

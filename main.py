@@ -22,12 +22,12 @@ app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Stałe dla InternVL
+# Constants for InternVL
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 def build_transform(input_size):
-    """Buduje transformację obrazu dla InternVL"""
+    """Builds image transform for InternVL"""
     MEAN, STD = IMAGENET_MEAN, IMAGENET_STD
     transform = T.Compose([
         T.Lambda(lambda img: img.convert('RGB') if img.mode != 'RGB' else img),
@@ -38,7 +38,7 @@ def build_transform(input_size):
     return transform
 
 def find_closest_aspect_ratio(aspect_ratio, target_ratios, width, height, image_size):
-    """Znajduje najbliższy aspect ratio dla InternVL"""
+    """Finds the closest aspect ratio for InternVL"""
     best_ratio_diff = float('inf')
     best_ratio = (1, 1)
     area = width * height
@@ -54,7 +54,7 @@ def find_closest_aspect_ratio(aspect_ratio, target_ratios, width, height, image_
     return best_ratio
 
 def dynamic_preprocess(image, min_num=1, max_num=12, image_size=448, use_thumbnail=False):
-    """Dynamiczne przetwarzanie obrazu dla InternVL"""
+    """Dynamic image preprocessing for InternVL"""
     orig_width, orig_height = image.size
     aspect_ratio = orig_width / orig_height
 
@@ -88,75 +88,75 @@ def dynamic_preprocess(image, min_num=1, max_num=12, image_size=448, use_thumbna
     return processed_images
 
 def preprocess_image_for_internvl(image, input_size=448, max_num=6):
-    """Przetwarza obraz PIL dla InternVL"""
+    """Preprocesses a PIL image for InternVL"""
     transform = build_transform(input_size=input_size)
     images = dynamic_preprocess(image, image_size=input_size, use_thumbnail=True, max_num=max_num)
     pixel_values = [transform(img) for img in images]
     pixel_values = torch.stack(pixel_values)
     return pixel_values
 
-# Konfiguracja modelu ViViT
+# ViViT model configuration
 MODEL_NAME = "google/vivit-b-16x2-kinetics400"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-print(f"Ładowanie modelu ViViT na urządzeniu: {device}")
+print(f"Loading ViViT model on device: {device}")
 processor = VivitImageProcessor.from_pretrained(MODEL_NAME)
 model = VivitForVideoClassification.from_pretrained(
     MODEL_NAME,
     ignore_mismatched_sizes=False,
 )
 
-# Załaduj etykiety Kinetics-400
-print("[*] Ladowanie etykiet Kinetics-400 z pliku lokalnego...")
+# Load Kinetics-400 labels
+print("[*] Loading Kinetics-400 labels from local file...")
 try:
     with open("kinetics400_labels.json", "r") as f:
         labels_data = json.load(f)
         id2label = {int(k): v for k, v in labels_data.items()}
         model.config.id2label = id2label
         model.config.label2id = {v: k for k, v in id2label.items()}
-        print(f"[OK] Zaladowano {len(id2label)} etykiet klas")
+        print(f"[OK] Loaded {len(id2label)} class labels")
 except Exception as e:
-    print(f"[!] Blad ladowania etykiet: {e}")
+    print(f"[!] Error loading labels: {e}")
     model.config.id2label = {i: f"Activity {i}" for i in range(400)}
 
 model = model.to(device)
 model.eval()
-print("Model ViViT załadowany!")
+print("ViViT model loaded!")
 sample_label = model.config.id2label.get(0, "Unknown")
-print(f"Przykładowa klasa: {sample_label}")
+print(f"Sample class: {sample_label}")
 
-# Konfiguracja modelu RT-DETR (detekcja obiektów)
-print(f"\n[*] Ladowanie modelu RT-DETR na urzadzeniu: {device}")
+# RT-DETR model configuration (object detection)
+print(f"\n[*] Loading RT-DETR model on device: {device}")
 try:
     DETECTION_MODEL_NAME = "PekingU/rtdetr_r50vd"
     detection_processor = RTDetrImageProcessor.from_pretrained(DETECTION_MODEL_NAME)
     detection_model = RTDetrForObjectDetection.from_pretrained(DETECTION_MODEL_NAME)
     detection_model = detection_model.to(device)
     detection_model.eval()
-    print("[OK] Model RT-DETR zaladowany!")
+    print("[OK] RT-DETR model loaded!")
 except Exception as e:
-    print(f"[!] Blad ladowania modelu detekcji: {e}")
-    print("[*] Detekcja obiektow wylaczona")
+    print(f"[!] Error loading detection model: {e}")
+    print("[*] Object detection disabled")
     detection_model = None
     detection_processor = None
 
-# Konfiguracja modelu ViT (klasyfikacja pojedynczych obrazów)
-print(f"\n[*] Ladowanie modelu ViT na urzadzeniu: {device}")
+# ViT model configuration (single image classification)
+print(f"\n[*] Loading ViT model on device: {device}")
 try:
     VIT_MODEL_NAME = "google/vit-base-patch16-224"
     vit_processor = ViTImageProcessor.from_pretrained(VIT_MODEL_NAME)
     vit_model = ViTForImageClassification.from_pretrained(VIT_MODEL_NAME)
     vit_model = vit_model.to(device)
     vit_model.eval()
-    print(f"[OK] Model ViT zaladowany! Klasy: {len(vit_model.config.id2label)}")
+    print(f"[OK] ViT model loaded! Classes: {len(vit_model.config.id2label)}")
 except Exception as e:
-    print(f"[!] Blad ladowania modelu ViT: {e}")
-    print("[*] Klasyfikacja obrazow wylaczona")
+    print(f"[!] Error loading ViT model: {e}")
+    print("[*] Image classification disabled")
     vit_model = None
     vit_processor = None
 
-# Konfiguracja modelu InternVL3_5-4B (Vision-Language Model)
-print(f"\n[*] Ladowanie modelu InternVL3_5-4B na urzadzeniu: {device}")
+# InternVL3_5-4B model configuration (Vision-Language Model)
+print(f"\n[*] Loading InternVL3_5-4B model on device: {device}")
 try:
     INTERNVL_MODEL_NAME = "OpenGVLab/InternVL3_5-4B-Flash"
     internvl_tokenizer = AutoTokenizer.from_pretrained(INTERNVL_MODEL_NAME, trust_remote_code=True)
@@ -168,51 +168,50 @@ try:
     ).eval()
     if device == "cuda":
         internvl_model = internvl_model.to(device)
-    print(f"[OK] Model InternVL3_5-4B-Flash zaladowany!")
+    print(f"[OK] InternVL3_5-4B-Flash model loaded!")
 except Exception as e:
-    print(f"[!] Blad ladowania modelu InternVL: {e}")
-    print("[*] Generowanie opisow wideo wylaczone")
+    print(f"[!] Error loading InternVL model: {e}")
+    print("[*] Video description generation disabled")
     internvl_model = None
     internvl_tokenizer = None
 
-# Bufor dla ramek wideo (ViViT wymaga sekwencji ramek)
-FRAME_BUFFER_SIZE = 32  # ViViT standardowo używa 32 ramek
+# Frame buffer for video (ViViT requires a sequence of frames)
+FRAME_BUFFER_SIZE = 32  # ViViT uses 32 frames by default
 frame_buffer = deque(maxlen=FRAME_BUFFER_SIZE)
 buffer_lock = threading.Lock()
 
-# Cache dla ostatniej predykcji
+# Cache for the last prediction
 last_prediction = {
     "top_classes": [
-        {"class": "Oczekiwanie...", "confidence": 0.0}
+        {"class": "Waiting...", "confidence": 0.0}
     ],
     "objects": [],
     "vit_classes": [],
-    "video_description": "Oczekiwanie..."
+    "video_description": "Waiting..."
 }
 prediction_lock = threading.Lock()
 
-# Cache dla ostatniej ramki do detekcji
+# Cache for the last frame for detection
 last_frame = None
 last_frame_lock = threading.Lock()
 
 
 def process_frame(frame_base64):
-    """Dekoduje ramkę z base64 i dodaje do bufora"""
+    """Decodes a frame from base64 and adds it to the buffer"""
     global last_frame
     try:
-        # Dekoduj base64
         img_data = base64.b64decode(frame_base64.split(',')[1])
         nparr = np.frombuffer(img_data, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
-        # Konwersja BGR -> RGB
+        # Convert BGR -> RGB
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
-        # Zapisz oryginalną ramkę do detekcji
+        # Save the original frame for detection
         with last_frame_lock:
             last_frame = frame.copy()
         
-        # Zmień rozmiar do 224x224 (standardowy input dla ViViT)
+        # Resize to 224x224 (standard ViViT input size)
         frame_resized = cv2.resize(frame, (224, 224))
         
         with buffer_lock:
@@ -220,41 +219,37 @@ def process_frame(frame_base64):
         
         return True
     except Exception as e:
-        print(f"[!] Blad przetwarzania ramki: {e}")
+        print(f"[!] Error processing frame: {e}")
         return False
 
 
 def generate_video_description(frame):
-    """Generuje opis klatki wideo za pomocą InternVL"""
+    """Generates a description of the video frame using InternVL"""
     try:
         if frame is None or internvl_model is None:
-            return "Model niedostępny"
+            return "Model unavailable"
         
-        # Konwertuj numpy array do PIL Image
         if isinstance(frame, np.ndarray):
             frame_pil = Image.fromarray(frame)
         else:
             frame_pil = frame
         
-        # Przetwórz obraz dla InternVL
         pixel_values = preprocess_image_for_internvl(frame_pil, input_size=448, max_num=4)
         
-        # Przenieś na odpowiednie urządzenie
+        # Move to the appropriate device
         if device == "cuda":
             pixel_values = pixel_values.to(torch.bfloat16).cuda()
         else:
             pixel_values = pixel_values.to(torch.float32)
         
-        # Przygotuj prompt z tagiem <image>
         question = "<image>\nDescribe briefly."
         
-        # Konfiguracja generowania - szybka
+        # Fast generation config
         generation_config = dict(
             max_new_tokens=100,
             do_sample=False,
         )
         
-        # Generuj odpowiedź
         with torch.no_grad():
             response = internvl_model.chat(
                 internvl_tokenizer,
@@ -263,23 +258,21 @@ def generate_video_description(frame):
                 generation_config
             )
         
-        return response if response else "Brak opisu"
+        return response if response else "No description"
     except Exception as e:
-        print(f"[!] Blad generowania opisu InternVL: {e}")
-        return f"Błąd"
+        print(f"[!] Error generating InternVL description: {e}")
+        return "Error"
 
 
 def classify_image_vit(frame):
-    """Klasyfikuje pojedynczą klatkę za pomocą modelu ViT"""
+    """Classifies a single frame using the ViT model"""
     try:
         if frame is None or vit_model is None:
             return []
         
-        # Przygotuj input
         inputs = vit_processor(images=frame, return_tensors="pt")
         inputs = {k: v.to(device) for k, v in inputs.items()}
         
-        # Inference
         with torch.no_grad():
             outputs = vit_model(**inputs)
             logits = outputs.logits
@@ -299,26 +292,23 @@ def classify_image_vit(frame):
         
         return vit_classes
     except Exception as e:
-        print(f"[!] Blad klasyfikacji ViT: {e}")
+        print(f"[!] Error during ViT classification: {e}")
         return []
 
 
 def detect_objects(frame):
-    """Wykrywa obiekty w ramce za pomoca modelu RT-DETR"""
+    """Detects objects in a frame using the RT-DETR model"""
     try:
         if frame is None or detection_model is None:
             return []
         
-        # Przygotuj input
         inputs = detection_processor(images=frame, return_tensors="pt")
         inputs = {k: v.to(device) for k, v in inputs.items()}
         
-        # Inference
         with torch.no_grad():
             outputs = detection_model(**inputs)
         
-        # Przetwórz wyniki (RT-DETR format)
-        # frame.shape[:2] to (height, width), ale potrzebujemy (width, height) czyli [::-1]
+        # Post-process RT-DETR results; convert frame.shape[:2] from (height, width) to (width, height) using [::-1]
         target_sizes = torch.tensor([frame.shape[:2][::-1]])
         results = detection_processor.post_process_object_detection(
             outputs, 
@@ -336,7 +326,6 @@ def detect_objects(frame):
                 score_val = score.item() if hasattr(score, 'item') else float(score)
                 label_val = label_id.item() if hasattr(label_id, 'item') else int(label_id)
                 
-                # Pobierz nazwę klasy z konfiguracji modelu
                 try:
                     label_name = detection_model.config.id2label.get(label_val, f"Object {label_val}")
                 except:
@@ -347,14 +336,14 @@ def detect_objects(frame):
                     "confidence": float(score_val)
                 })
         
-        return objects[:5]  # Zwróć maksymalnie 5 top obiektów
+        return objects[:5]  # Return at most 5 top objects
     except Exception as e:
-        print(f"[!] Blad detekcji obiektow: {e}")
+        print(f"[!] Error during object detection: {e}")
         return []
 
 
 def run_inference():
-    """Uruchamia inference gdy bufor jest pełny"""
+    """Runs inference when the buffer is full"""
     global last_prediction
     
     while True:
@@ -370,24 +359,20 @@ def run_inference():
             # Przygotuj dane dla modelu
             frames_np = np.array(frames)
             
-            # Przetwórz przez processor
             inputs = processor(list(frames_np), return_tensors="pt")
             inputs = {k: v.to(device) for k, v in inputs.items()}
             
-            # Inference
             with torch.no_grad():
                 outputs = model(**inputs)
                 logits = outputs.logits
                 
-                # Pobierz probabilności wszystkich klas
                 probs = torch.softmax(logits, dim=-1)[0]
                 top_probs, top_indices = torch.topk(probs, 5)
                 
-                # Dynamicznie określ ile klas pokazać na podstawie pewności
+                # Dynamically determine how many classes to show based on confidence:
+                # >60% → show 1, 40–60% → show 2, ≤40% → show 3
                 best_confidence = top_probs[0].item()
                 
-                # Jeśli najlepsza klasa ma >60% pewności, pokazuj tylko 1
-                # Jeśli ma <60%, pokazuj 3 żeby pokazać alternatywy
                 if best_confidence > 0.6:
                     num_to_show = 1
                 elif best_confidence > 0.4:
@@ -395,14 +380,13 @@ def run_inference():
                 else:
                     num_to_show = 3
                 
-                # Przygotuj listę top klas
                 top_classes = []
                 for i in range(num_to_show):
                     idx = int(top_indices[i].cpu().item())
                     prob = float(top_probs[i].cpu().item())
                     class_name = model.config.id2label.get(idx, f"Unknown class {idx}")
                     
-                    # Jeśli etykieta to LABEL_XXX, spróbuj użyć indeksu jako opisu
+                    # If the label is LABEL_XXX, fall back to index-based description
                     if class_name.startswith("LABEL_"):
                         class_name = f"Activity {idx} (label not loaded)"
                     
@@ -411,7 +395,7 @@ def run_inference():
                         "confidence": prob
                     })
                 
-                # Wykryj obiekty i sklasyfikuj pojedynczą klatkę
+                # Detect objects and classify the current frame
                 objects = []
                 vit_classes = []
                 with last_frame_lock:
@@ -419,8 +403,8 @@ def run_inference():
                         objects = detect_objects(last_frame)
                         vit_classes = classify_image_vit(last_frame)
                 
-                # Opis sceny jest generowany tylko na żądanie (klik w UI)
-                video_description = last_prediction.get("video_description", "Oczekiwanie...")
+                # Scene description is generated on demand only (UI click)
+                video_description = last_prediction.get("video_description", "Waiting...")
                 
                 with prediction_lock:
                     last_prediction = {
@@ -431,60 +415,58 @@ def run_inference():
                     }
                 
                 top_classes_str = ", ".join([f"{c['class']} ({c['confidence']:.0%})" for c in top_classes[:3]])
-                objects_str = ", ".join([f"{o['name']} ({o['confidence']:.0%})" for o in objects]) if objects else "brak"
-                vit_str = ", ".join([f"{c['class']} ({c['confidence']:.0%})" for c in vit_classes[:2]]) if vit_classes else "brak"
+                objects_str = ", ".join([f"{o['name']} ({o['confidence']:.0%})" for o in objects]) if objects else "none"
+                vit_str = ", ".join([f"{c['class']} ({c['confidence']:.0%})" for c in vit_classes[:2]]) if vit_classes else "none"
                 desc_str = video_description[:80] + "..." if len(video_description) > 80 else video_description
-                print(f"[PRED] Top akcje: {top_classes_str} | Obiekty: {objects_str} | ViT: {vit_str}")
+                print(f"[PRED] Top actions: {top_classes_str} | Objects: {objects_str} | ViT: {vit_str}")
                 print(f"[INTERNVL] {desc_str}")
             
-            time.sleep(1.2)  # Zwolniona pętla inference dla mniejszego obciążenia
+            time.sleep(1.2)  # Slowed inference loop to reduce load
             
         except Exception as e:
-            print(f"[!] Blad podczas inference: {e}")
+            print(f"[!] Error during inference: {e}")
             time.sleep(1)
 
 
-# Uruchom wątek inference w tle
+# Start inference thread in the background
 inference_thread = threading.Thread(target=run_inference, daemon=True)
 inference_thread.start()
 
 
 @app.route('/')
 def index():
-    """Strona główna z interfejsem"""
+    """Main page with the UI"""
     return render_template('index.html')
 
 
 @socketio.on('connect')
 def handle_connect():
-    """Obsługiwanie połączenia WebSocket"""
-    print(f"[WS] Nowy klient połączony: {request.sid}")
+    """Handles WebSocket connection"""
+    print(f"[WS] New client connected: {request.sid}")
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Obsługiwanie rozłączenia WebSocket"""
-    print(f"[WS] Klient rozłączony: {request.sid}")
+    """Handles WebSocket disconnection"""
+    print(f"[WS] Client disconnected: {request.sid}")
 
 
 @socketio.on('send_frame')
 def handle_frame(data):
-    """Odbieranie ramki przez WebSocket"""
+    """Receives a frame via WebSocket"""
     try:
         frame_data = data.get('frame')
         
         if not frame_data:
-            emit('error', {'message': 'Brak danych ramki'})
+            emit('error', {'message': 'No frame data'})
             return
         
-        # Przetwórz ramkę
         success = process_frame(frame_data)
         
         if not success:
-            emit('error', {'message': 'Błąd przetwarzania ramki'})
+            emit('error', {'message': 'Frame processing error'})
             return
         
-        # Wyślij aktualną predykcję
         with prediction_lock:
             prediction = last_prediction.copy()
         
@@ -496,15 +478,15 @@ def handle_frame(data):
 
 @socketio.on('request_description')
 def handle_request_description():
-    """Generuje opis sceny na żądanie (klik w UI)"""
+    """Generates a scene description on demand (UI click)"""
     try:
         with last_frame_lock:
             frame = None if last_frame is None else last_frame.copy()
         if frame is None:
-            emit('description_response', {'video_description': 'Brak ramki do opisu'})
+            emit('description_response', {'video_description': 'No frame available'})
             return
         if internvl_model is None:
-            emit('description_response', {'video_description': 'Model niedostępny'})
+            emit('description_response', {'video_description': 'Model unavailable'})
             return
 
         desc = generate_video_description(frame)
@@ -512,12 +494,12 @@ def handle_request_description():
             last_prediction['video_description'] = desc
         emit('description_response', {'video_description': desc})
     except Exception as e:
-        emit('description_response', {'video_description': f'Błąd: {e}'})
+        emit('description_response', {'video_description': f'Error: {e}'})
 
 
 @app.route('/api/prediction', methods=['GET'])
 def get_prediction():
-    """Endpoint do pobierania ostatniej predykcji"""
+    """Endpoint for retrieving the latest prediction"""
     with prediction_lock:
         prediction = last_prediction.copy()
     return jsonify(prediction)
@@ -540,24 +522,24 @@ if __name__ == '__main__':
     key_path = os.getenv('SSL_KEY_PATH')
 
     print("\n" + "="*50)
-    print("Serwer ViViT uruchomiony!")
-    print(f"Urządzenie: {device}")
+    print("ViViT server started!")
+    print(f"Device: {device}")
 
     ssl_context = None
     if enable_https:
         if cert_path and key_path and os.path.exists(cert_path) and os.path.exists(key_path):
             ssl_context = (cert_path, key_path)
-            print("Tryb: HTTPS (lokalny certyfikat)")
+            print("Mode: HTTPS (local certificate)")
             print(f"Cert: {cert_path}")
-            print(f"Klucz: {key_path}")
-            print("Otwórz https://localhost:5000 w przeglądarce")
+            print(f"Key: {key_path}")
+            print("Open https://localhost:5000 in your browser")
         else:
-            print("UWAGA: ENABLE_HTTPS=true, ale brak poprawnych ścieżek do certyfikatu/klucza.")
-            print("Używam HTTP.")
-            print("Otwórz http://localhost:5000 w przeglądarce")
+            print("WARNING: ENABLE_HTTPS=true, but no valid certificate/key paths provided.")
+            print("Using HTTP.")
+            print("Open http://localhost:5000 in your browser")
     else:
-        print("Tryb: HTTP")
-        print("Otwórz http://localhost:5000 w przeglądarce")
+        print("Mode: HTTP")
+        print("Open http://localhost:5000 in your browser")
 
     print("="*50 + "\n")
 
